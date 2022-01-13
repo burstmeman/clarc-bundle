@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 5.2.10
++ Add messenger middleware for adding amqp routing key `artox_lab_clarc.messenger.middleware.add_amqp_routing_key`
++ Add messenger transport serializer for protobuf messages `artox_lab_clarc.messenger.transport.serializer.protobuf`
+
 ## 5.1.1
 * Updated `ArtoxLab\Bundle\ClarcBundle\Core\Interfaces\Bus\Middleware\ValidationMiddleware`. 
   `HandlerFailedException` won't override original exception
