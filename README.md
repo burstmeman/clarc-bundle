@@ -51,5 +51,9 @@ artox_lab_clarc:
     api:
         serializer:
             class: \ArtoxLab\Bundle\ClarcBundle\Core\Interfaces\UI\API\Transformers\Serializers\NullObjectArraySerializer
+```
 
 
+# Learn more
+
+- [Messaging between services](doc/message_bus/services_communication/index.md)
