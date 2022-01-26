@@ -62,11 +62,35 @@ class ArtoxLabClarcExtension extends Extension implements PrependExtensionInterf
                         'default_middleware' => 'allow_no_handlers',
                         'middleware'         => ['artox_lab_clarc.bus.validation'],
                     ],
+                    'listening.bus' => [
+                        'default_middleware' => 'allow_no_handlers',
+                    ],
+                    'broadcasting.bus' => [
+                        'default_middleware' => 'allow_no_handlers',
+                        'middleware'         => [
+                            'artox_lab_clarc.messenger.middleware.add_amqp_routing_key',
+                        ],
+                    ],
                 ],
-                'transports'  => ['sync' => 'sync://'],
+                'transports'  => [
+                    'sync' => 'sync://',
+                    'broadcasting' => [
+                        'dsn' => '%env(BROADCASTING_MESSENGER_TRANSPORT_DSN)%',
+                        'serializer' => 'artox_lab_clarc.messenger.transport.serializer.protobuf_self_origin_stamps',
+                    ],
+                    'listening' => [
+                        'dsn' => '%env(LISTENING_MESSENGER_TRANSPORT_DSN)%',
+                        'serializer' => 'artox_lab_clarc.messenger.transport.serializer.protobuf_self_origin_stamps',
+                    ],
+                    'failure_listening' => [
+                        'dsn' => '%env(FAILURE_LISTENING_MESSENGER_TRANSPORT_DSN)%',
+                        'serializer' => 'artox_lab_clarc.messenger.transport.serializer.protobuf',
+                    ],
+                ],
                 'routing'     => [
                     AbstractCommand::class => 'sync',
                     AbstractQuery::class   => 'sync',
+                    \Google\Protobuf\Internal\Message::class => 'broadcasting_events',
                 ],
             ],
         ];
@@ -97,6 +121,7 @@ class ArtoxLabClarcExtension extends Extension implements PrependExtensionInterf
         $config        = $this->processConfiguration($configuration, $configs);
 
         $this->loadApi(($config['api'] ?? []), $container);
+        $this->registerMessengerConfiguration($config['messenger'], $container);
     }
 
     /**
@@ -112,6 +137,31 @@ class ArtoxLabClarcExtension extends Extension implements PrependExtensionInterf
         if (false === empty($config['serializer']['class'])) {
             $container->setParameter('artox_lab_clarc.api.serializer.class', $config['serializer']['class']);
         }
+    }
+
+    private function registerMessengerConfiguration(array $config, ContainerBuilder $container): void
+    {
+        $transportBusMap = [
+            'listening' => 'listening.bus',
+        ];
+
+        foreach ($config['transports'] as $transportId => $transport) {
+            if (!$container->hasDefinition('messenger.transport.' . $transportId)) {
+                throw new \RuntimeException(sprintf('Undefined transport with id "%s".', $transportId));
+            }
+
+            if (null !== $transport['bus']) {
+                if (!$container->hasDefinition('messenger.bus.' . $transport['bus'])) {
+                    throw new \RuntimeException(sprintf('Undefined message bus with id "%s".', $transport['bus']));
+                }
+
+                // Merge array to prevent redeclare required mapping.
+                $transportBusMap += [$transportId => $transport['bus']];
+            }
+        }
+
+        $container->getDefinition('artox_lab_clarc.messenger.listener.add_bus_name_stamp_listener')
+            ->replaceArgument(0, $transportBusMap);
     }
 
 }
